@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  password     String
+  points       Int      @default(0)
+  badge        String   @default("Citizen")
+  avatar       String?
+  createdAt    DateTime @default(now())
+  
+  issues       Issue[]
+  upvotes      Upvote[]
+  comments     Comment[]
+}
+
+model Issue {
+  id              String   @id @default(uuid())
+  title           String
+  description     String
+  category        String
+  severity        String   @default("medium")
+  status          String   @default("open")
+  imageUrl        String?
+  latitude        Float
+  longitude       Float
+  address         String?
+  upvoteCount     Int      @default(0)
+  verifiedCount   Int      @default(0)
+  aiAnalysis      Json?
+  department      String?
+  resolvedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  userId       String
+  user         User        @relation(fields: [userId], references: [id])
+  upvotes      Upvote[]
+  comments     Comment[]
+}
+
+model Upvote {
+  id        String   @id @default(uuid())
+  userId    String
+  issueId   String
+  type      String   @default("upvote")
+  createdAt DateTime @default(now())
+  
+  user    User   @relation(fields: [userId], references: [id])
+  issue   Issue  @relation(fields: [issueId], references: [id])
+  
+  @@unique([userId, issueId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  text      String
+  userId    String
+  issueId   String
+  createdAt DateTime @default(now())
+  
+  user    User   @relation(fields: [userId], references: [id])
+  issue   Issue  @relation(fields: [issueId], references: [id])
+}
