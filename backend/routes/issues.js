@@ -3,7 +3,7 @@ const multer = require('multer');
 const prisma = require('../lib/prisma');
 const authMiddleware = require('../middleware/auth');
 const { uploadImage } = require('../lib/cloudinary');
-const { analyzeIssueImage, verifyIssueValidity } = require('../lib/gemini');
+const { analyzeIssueImage, verifyIssueValidity, ContentRejectedError } = require('../lib/gemini');
 const { getBadge, VALID_STATUSES, VALID_SEVERITIES, VALID_CATEGORIES } = require('../lib/utils');
 
 const router = express.Router();
@@ -99,8 +99,20 @@ router.post('/', authMiddleware, upload.single('image'), async (req, res) => {
     let aiTitle = safeTitle;
 
     if (req.file) {
-      imageUrl = await uploadImage(req.file.buffer, req.file.mimetype);
-      aiAnalysis = await analyzeIssueImage(imageUrl);
+      try {
+        imageUrl = await uploadImage(req.file.buffer, req.file.mimetype);
+        aiAnalysis = await analyzeIssueImage(imageUrl);
+      } catch (err) {
+        if (err instanceof ContentRejectedError || err.name === 'ContentRejectedError') {
+          // Image failed moderation — reject the whole submission, no issue is created
+          return res.status(422).json({
+            error: 'Image rejected: ' + (err.message || 'This image does not appear to show a valid civic issue.'),
+            moderationFailed: true
+          });
+        }
+        // Any other unexpected error during analysis — log it but don't block reporting
+        console.error('Image analysis error (non-moderation):', err.message);
+      }
       if (aiAnalysis) {
         category = VALID_CATEGORIES.includes(aiAnalysis.category) ? aiAnalysis.category : category;
         severity = VALID_SEVERITIES.includes(aiAnalysis.severity) ? aiAnalysis.severity : severity;

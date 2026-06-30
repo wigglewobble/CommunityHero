@@ -52,7 +52,9 @@ export default function ReportIssue() {
       await refreshUser();
       navigate(`/issues/${data.issue.id}`);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to submit');
+      const errMsg = err.response?.data?.error || 'Failed to submit';
+      const isModeration = err.response?.data?.moderationFailed;
+      toast.error(errMsg, { duration: isModeration ? 6000 : 3000 });
     } finally { setLoading(false); }
   };
 
